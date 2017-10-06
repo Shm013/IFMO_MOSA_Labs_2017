@@ -1,0 +1,1 @@
+copy objfre_win7_x86\i386\native.exe C:\Windows\System32\native.exe
