@@ -9,6 +9,11 @@ HANDLE hEvent;
 // input buffer
 CHAR line[1024];
 
+WCHAR displayBuffer[1024];
+USHORT linePos = 0;
+WCHAR putChar[2] = L" ";
+UNICODE_STRING charString = {2, 2, putChar};
+
 NTSTATUS
 cliOpenInputDevice (OUT PHANDLE handle, WCHAR* deviceName) // open input device such as keyboards
 {
@@ -91,8 +96,49 @@ cliWaitForInput (IN HANDLE hDriver,       	// device handler
     return status;
 }
 
-KEYBOARD_INPUT_DATA keyboardData;
-ULONG bufferLength = sizeof (KEYBOARD_INPUT_DATA);
+NTSTATUS
+cliPutChar(IN WCHAR c)
+{
+    // initialize the string
+    charString.Buffer[0] = c;
+
+    // Check for overflow, or simply update.
+/*
+	#if 0
+    if (LinePos++ > 80)
+    {
+        //
+        // We'll be on a new line. Do the math and see how far.
+        //
+        MessageLength = NewPos - 80;
+        LinePos = sizeof(WCHAR);
+    }
+#endif
+*/
+
+    // make sure that this isn't backspace
+    if (c != '\r')
+    {
+        // check if it's a new line
+        if (c == '\n')
+        {
+            // reset the display buffer
+            linePos = 0;
+            displayBuffer[linePos] = UNICODE_NULL;
+        }
+        else
+        {
+            // Add the character in buffer
+            displayBuffer[linePos] = c;
+            linePos++;
+        }
+    }
+
+    // Print the character
+    return NtDisplayString(&charString);
+}
+
+CHAR c;
 
 void NtProcessStartup (void* StartupArgument) 
 { 
@@ -102,5 +148,5 @@ void NtProcessStartup (void* StartupArgument)
     // setup keyboard input:
     status = cliOpenInputDevice (&hKeyboard, L"\\Device\\KeyboardClass0");
 	
-	cliWaitForInput (hKeyboard, &keyboardData, &bufferLength);
+	cliPutChar(L'1');
 }
