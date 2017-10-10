@@ -5,6 +5,7 @@ UMTYPE=nt
 INCLUDES=$(DDK_INC_PATH)
 MINWIN_SDK_LIB_PATH=$(SDK_LIB_PATH)
 
-SOURCES=main.c
+SOURCES=main.c \
+		keytrans.c
         
 PRECOMPILED_INCLUDE=precomp.h

@@ -96,8 +96,27 @@ cliWaitForInput (IN HANDLE hDriver,       	// device handler
     return status;
 }
 
+// get one character
+CHAR
+сliGetChar (IN HANDLE hDriver)
+{
+	KEYBOARD_INPUT_DATA keyboardData;
+	KBD_RECORD kbd_rec;
+	ULONG bufferLength = sizeof(KEYBOARD_INPUT_DATA);
+
+	cliWaitForInput(hDriver, &keyboardData, &bufferLength);
+
+	IntTranslateKey(&keyboardData, &kbd_rec);
+
+	if (!kbd_rec.bKeyDown)
+	{
+		return (-1);
+	}
+	return kbd_rec.asciiChar;
+}
+
 NTSTATUS
-cliPutChar(IN WCHAR c)
+cliPutChar (IN WCHAR c)
 {
     // initialize the string
     charString.Buffer[0] = c;
@@ -135,7 +154,7 @@ cliPutChar(IN WCHAR c)
     }
 
     // Print the character
-    return NtDisplayString(&charString);
+    return NtDisplayString (&charString);
 }
 
 CHAR c;
@@ -148,5 +167,9 @@ void NtProcessStartup (void* StartupArgument)
     // setup keyboard input:
     status = cliOpenInputDevice (&hKeyboard, L"\\Device\\KeyboardClass0");
 	
+	// testing here:
 	cliPutChar(L'1');
+	c = сliGetChar (hKeyboard);
+	cliPutChar(c);
+	c = сliGetChar (hKeyboard);
 }
