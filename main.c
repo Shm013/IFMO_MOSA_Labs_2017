@@ -189,7 +189,6 @@ cliGetLine (IN HANDLE hDriver)
     }
 }
 
-CHAR c;
 
 void NtProcessStartup (void* StartupArgument) 
 { 
@@ -199,10 +198,29 @@ void NtProcessStartup (void* StartupArgument)
     // setup keyboard input:
     status = cliOpenInputDevice (&hKeyboard, L"\\Device\\KeyboardClass0");
 	
-	// testing here:
-	command = cliGetLine (hKeyboard);
+	cliPrintString ("Type 'quit' to exit\n");
+	cliPrintString (">>>");
 	
-	cliPrintString (command);
-	
-	c = сliGetChar (hKeyboard);
+	while (TRUE)
+    {
+        // get the line that was entered and display a new line
+        command = cliGetLine (hKeyboard);
+        cliPrintString ("\n");
+
+        // make sure there's actually a command
+        if (*command)
+        {
+            // process the command and do a new line again.
+            if (!_strnicmp(command, "quit", 4)) // exit if "quit"
+			{
+				NtTerminateProcess(NtCurrentProcess(), 0); // exit native application
+			}
+			cliPrintString ("\n");
+			cliPrintString (command);
+			cliPrintString ("\n");
+        }
+
+        // display the prompt, and restart the loop
+        cliPrintString (">>>");
+    }
 }
