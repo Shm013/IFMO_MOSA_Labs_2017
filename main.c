@@ -116,6 +116,7 @@ CHAR
 WCHAR putChar[2] = L" "; // one character
 UNICODE_STRING unicodeChar = {2, 2, putChar}; // 2 byte unicode character
 
+
 NTSTATUS
 cliPutChar (IN WCHAR c)
 {
@@ -124,6 +125,68 @@ cliPutChar (IN WCHAR c)
 
     // print the character
     return NtDisplayString (&unicodeChar);
+}
+
+NTSTATUS
+cliPrintString (IN PCHAR line)
+{
+	NTSTATUS status;
+	
+	// loop every character
+    while (*line != '\0')
+    {
+        // Print the character
+        status = cliPutChar(*line);
+		line ++;
+    }
+	
+		
+	// return status
+    return status;
+}
+
+
+// Input buffer
+CHAR line[1024];
+CHAR currentPosition = 0;
+
+PCHAR
+cliGetLine (IN HANDLE hDriver)
+{
+    CHAR c;
+    BOOLEAN first = FALSE;
+
+    // Wait for a new character
+    while (TRUE)
+    {
+        // get the character that was pressed
+        c = сliGetChar(hDriver);
+
+        // check if this was ENTER
+        if (c == '\r') // such Windows...
+        {
+			line[currentPosition] = ANSI_NULL;
+            currentPosition = 0;
+            
+			// return it
+            return line;
+        }
+		// skip backspace
+        else if (c == '\b')
+        {
+            continue;
+        }
+
+        // c sure it's not NULL.
+        if (!c || c == -1) continue;
+
+        // add it to our line buffer
+        line[currentPosition] = c;
+        currentPosition++;
+
+        // echo here:
+        cliPutChar(c);
+    }
 }
 
 CHAR c;
@@ -137,8 +200,9 @@ void NtProcessStartup (void* StartupArgument)
     status = cliOpenInputDevice (&hKeyboard, L"\\Device\\KeyboardClass0");
 	
 	// testing here:
-	cliPutChar(L'1');
-	c = сliGetChar (hKeyboard);
-	cliPutChar(c);
+	command = cliGetLine (hKeyboard);
+	
+	cliPrintString (command);
+	
 	c = сliGetChar (hKeyboard);
 }
