@@ -9,10 +9,7 @@ HANDLE hEvent;
 // input buffer
 CHAR line[1024];
 
-WCHAR displayBuffer[1024];
-USHORT linePos = 0;
-WCHAR putChar[2] = L" ";
-UNICODE_STRING charString = {2, 2, putChar};
+
 
 NTSTATUS
 cliOpenInputDevice (OUT PHANDLE handle, WCHAR* deviceName) // open input device such as keyboards
@@ -76,10 +73,10 @@ cliWaitForInput (IN HANDLE hDriver,       	// device handler
                          hEvent,  		// a handle to an event object
                          NULL,			// reserved
                          NULL,			// reserved
-                         &iosb, 			// status block
-                         buffer,			// buffer that receives the data read from the file
-                         *bufferSize,    // the size, in bytes, of the buffer pointed to by Buffer
-                         &byteOffset,    // starting byte offset in the file where the read operation will begin (LARGE_INTEGER)
+                         &iosb, 		// status block
+                         buffer,		// buffer that receives the data read from the file
+                         *bufferSize,   // the size, in bytes, of the buffer pointed to by Buffer
+                         &byteOffset,   // starting byte offset in the file where the read operation will begin (LARGE_INTEGER)
                          NULL);			// device and intermediate drivers should set this pointer to NULL (optional)
 
     // Check if data is pending and indeterminate state
@@ -115,46 +112,18 @@ CHAR
 	return kbd_rec.asciiChar;
 }
 
+
+WCHAR putChar[2] = L" "; // one character
+UNICODE_STRING unicodeChar = {2, 2, putChar}; // 2 byte unicode character
+
 NTSTATUS
 cliPutChar (IN WCHAR c)
 {
     // initialize the string
-    charString.Buffer[0] = c;
+    unicodeChar.Buffer[0] = c;
 
-    // Check for overflow, or simply update.
-/*
-	#if 0
-    if (LinePos++ > 80)
-    {
-        //
-        // We'll be on a new line. Do the math and see how far.
-        //
-        MessageLength = NewPos - 80;
-        LinePos = sizeof(WCHAR);
-    }
-#endif
-*/
-
-    // make sure that this isn't backspace
-    if (c != '\r')
-    {
-        // check if it's a new line
-        if (c == '\n')
-        {
-            // reset the display buffer
-            linePos = 0;
-            displayBuffer[linePos] = UNICODE_NULL;
-        }
-        else
-        {
-            // Add the character in buffer
-            displayBuffer[linePos] = c;
-            linePos++;
-        }
-    }
-
-    // Print the character
-    return NtDisplayString (&charString);
+    // print the character
+    return NtDisplayString (&unicodeChar);
 }
 
 CHAR c;
