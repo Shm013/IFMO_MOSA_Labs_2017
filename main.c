@@ -1,5 +1,5 @@
 #include "precomp.h"
-
+//sukkkkkerwer
 // keyboard handler
 HANDLE hKeyboard;
 
