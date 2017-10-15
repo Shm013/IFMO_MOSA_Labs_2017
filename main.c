@@ -1,99 +1,99 @@
 #include "precomp.h"
-//sukkkkkerwer
-// keyboard handler
+
+// хэндл клавиатуры
 HANDLE hKeyboard;
 
-// event to wait on for keyboard input
+// хэндл события
 HANDLE hEvent;
 
-// input buffer
+// входной буфер
 CHAR line[1024];
 
 
 
 NTSTATUS
-cliOpenInputDevice (OUT PHANDLE handle, WCHAR* deviceName) // open input device such as keyboards
+cliOpenInputDevice (OUT PHANDLE handle, WCHAR* deviceName) // открыть устройство клавиатура
 {
     UNICODE_STRING driver;
     OBJECT_ATTRIBUTES objectAttrs;
-    IO_STATUS_BLOCK iosb; // status and information about the requested operation (FILE_CREATED, FILE_OPENED, etc...)
+    IO_STATUS_BLOCK iosb; // статус выполнения функции и информация о заданном праве доступа (FILE_CREATED, FILE_OPENED, etc...)
     HANDLE hDriver;
-    NTSTATUS status;
+    NTSTATUS status; 
 
-    RtlInitUnicodeString (&driver, L"\\Device\\KeyboardClass0"); // make unicode from wchar*, from winternl.h
+    RtlInitUnicodeString (&driver, L"\\Device\\KeyboardClass0"); // из wchar* в unicode
     
-    // initialize the object attributes, from Ntdef.h (ntddk.h)
-    InitializeObjectAttributes (&objectAttrs,			// save attrs here
-                                &driver, 				// device name here
-                                OBJ_CASE_INSENSITIVE, 	// atributes
-                                NULL,  					// root dir - do not need
-                                NULL); 					// set description, optional
+    // инициализация атрибутов объекта
+    InitializeObjectAttributes (&objectAttrs,			// сохраняет атрибуты в этой переменной
+                                &driver, 				// передаём имя устройства
+                                OBJ_CASE_INSENSITIVE, 	// поле для атрибутов
+                                NULL,  					// корневая папка (нет необходимости)
+                                NULL); 					// дескриптор (необязательное поле)
 
-    // open a handle to it, from winternl.h
-    status = NtCreateFile (&hDriver, // save handler here 
-                           SYNCHRONIZE | GENERIC_READ | FILE_READ_ATTRIBUTES, 	// desired access
-                           &objectAttrs,										// objectAttributes
-                           &iosb,												// status block
-                           NULL,												// initial allocation size, optional
-                           FILE_ATTRIBUTE_NORMAL,								// the file attributes, default
-                           0,													// type of share access
-                           FILE_OPEN,											// specifies what to do
-                           FILE_DIRECTORY_FILE,					// the file being created or opened is a directory file
-                           NULL,								// pointer to an EA buffer used to pass extended attributes
-                           0);									// length of the EA buffer
+    // создаём(открываем) файл клавиатуры
+    status = NtCreateFile (&hDriver, // хэндл сохраняется в эту переменную 
+                           SYNCHRONIZE | GENERIC_READ | FILE_READ_ATTRIBUTES, 	// Запрашиваемый доступ
+                           &objectAttrs,										// инициализированные атрибуты
+                           &iosb,												// статус-блок
+                           NULL,												// размер файла после создания
+                           FILE_ATTRIBUTE_NORMAL,								// атрибуты файла, по умолчанию
+                           0,													// совместное использование файла
+                           FILE_OPEN,											// указывает, как создать файл (файл уже должен существовать)
+                           FILE_DIRECTORY_FILE,					// опции создания
+                           NULL,								// буфер расширенных атрибутов
+                           0);									// длина предыдущего параметра
 
-    // Create an event that will be used to wait on the device
+    // создаём событие, которое будет ожидать ввода с клавиатуры
     InitializeObjectAttributes (&objectAttrs, NULL, 0, NULL, NULL);
-    status = NtCreateEvent (&hEvent, 			// save attrs here
-						    EVENT_ALL_ACCESS,   // all possible access rights to the event object
-						    &objectAttrs,   	// objectAttributes
-						    1, 					// event type (NotificationEvent)
-						    0);					// initial state (TRUE/FALSE)
+    status = NtCreateEvent (&hEvent, 			// атрибуты сохраняются тут
+						    EVENT_ALL_ACCESS,   // все возможные права доступа к объекту
+						    &objectAttrs,   	// инициализированные атрибуты
+						    1, 					// тип события (NotificationEvent)
+						    0);					// начальное состояние (TRUE/FALSE)
 
-    // Return the handle
+    // возвращаем хэндл
     *handle = hDriver;
     return status;
 }
 
-// routine waits for input from an input device
+// ожидание ввода с устройства
 NTSTATUS
-cliWaitForInput (IN HANDLE hDriver,       	// device handler
-                 IN PVOID buffer,         	// input buffer
-                 IN OUT PULONG bufferSize)	// size of input buffer
+cliWaitForInput (IN HANDLE hDriver,       	// хэндл клавиатуры
+                 IN PVOID buffer,         	// буфер для ввода
+                 IN OUT PULONG bufferSize)	// размер буфера ввода
 {
-    IO_STATUS_BLOCK iosb; 		// status and information about the requested operation (FILE_CREATED, FILE_OPENED, etc...)
+    IO_STATUS_BLOCK iosb; 		// статус выполнения функции и информация о заданном праве доступа (FILE_CREATED, FILE_OPENED, etc...)
     LARGE_INTEGER byteOffset;
     NTSTATUS status;
 
-    RtlZeroMemory (&iosb, sizeof(iosb)); 			 // fills a block of memory with zeros
-    RtlZeroMemory (&byteOffset, sizeof(byteOffset)); // fills a block of memory with zeros
+    RtlZeroMemory (&iosb, sizeof(iosb)); 			 // заполняет блок памяти нулями
+    RtlZeroMemory (&byteOffset, sizeof(byteOffset)); // заполняет блок памяти нулями
 
-    // Try to read the data
-    status = NtReadFile (hDriver, 		// handle to the file object
-                         hEvent,  		// a handle to an event object
-                         NULL,			// reserved
-                         NULL,			// reserved
-                         &iosb, 		// status block
-                         buffer,		// buffer that receives the data read from the file
-                         *bufferSize,   // the size, in bytes, of the buffer pointed to by Buffer
-                         &byteOffset,   // starting byte offset in the file where the read operation will begin (LARGE_INTEGER)
-                         NULL);			// device and intermediate drivers should set this pointer to NULL (optional)
+    // попытка прочитать данные 
+    status = NtReadFile (hDriver, 		// хэндл файла клавиатуры
+                         hEvent,  		// хэндл события ожидания ввода с клавиатуры
+                         NULL,			// адрес APC-функции (не используется)
+                         NULL,			// параметр для APC-функции
+                         &iosb, 		// статус-блок
+                         buffer,		// буфер, в который посещаются прочитанные данные из файла
+                         *bufferSize,   // размер буфера в байтах
+                         &byteOffset,   // байт смещения
+                         NULL);			// зарезервированно
 
-    // Check if data is pending and indeterminate state
-    if (status == STATUS_PENDING) // if I/O is in progress
+    // проверка, если данные ожидают ввода
+    if (status == STATUS_PENDING) // если операция ввода/вывода выполняется
     {
-        // Wait on the data to be read
-        status = NtWaitForSingleObject (hEvent, // waits until the hEvent object attains a state of signaled
-									   TRUE, 	// the alert can be delivered
-								       NULL); 	// timeout 
+        // ожидание чтения 
+        status = NtWaitForSingleObject (hEvent, // ожидает ответа от хэндла объекта
+									   TRUE, 	// сигнальный поток
+								       NULL); 	// таймаут 
     }
 
-    // Return status and how much data was read
+    // возвращает статус и объём прочитанной информации
     *bufferSize = (ULONG)iosb.Information;
     return status;
 }
 
-// get one character
+// получаем один символ
 CHAR
 сliGetChar (IN HANDLE hDriver)
 {
@@ -105,25 +105,25 @@ CHAR
 
 	IntTranslateKey(&keyboardData, &kbd_rec);
 
-	if (!kbd_rec.bKeyDown)
+	if (!kbd_rec.bKeyDown) //проверка, если клавиша не нажата, то возвращаем -1
 	{
 		return (-1);
 	}
-	return kbd_rec.asciiChar;
+	return kbd_rec.asciiChar; //иначе, возвращаем код символа в ascii
 }
 
 
-WCHAR putChar[2] = L" "; // one character
-UNICODE_STRING unicodeChar = {2, 2, putChar}; // 2 byte unicode character
+WCHAR putChar[2] = L" "; // один символ
+UNICODE_STRING unicodeChar = {2, 2, putChar}; // 2-хбайтовый символ unicode
 
 
 NTSTATUS
 cliPutChar (IN WCHAR c)
 {
-    // initialize the string
+    // инициализация строки
     unicodeChar.Buffer[0] = c;
 
-    // print the character
+    // печать символа
     return NtDisplayString (&unicodeChar);
 }
 
@@ -132,21 +132,21 @@ cliPrintString (IN PCHAR line)
 {
 	NTSTATUS status;
 	
-	// loop every character
+	// пока не наткулись на конец строки
     while (*line != '\0')
     {
-        // Print the character
+        // печатем символы
         status = cliPutChar(*line);
 		line ++;
     }
 	
 		
-	// return status
+	// статус функции
     return status;
 }
 
 
-// Input buffer
+// входной буфер
 CHAR line[1024];
 CHAR currentPosition = 0;
 
@@ -156,35 +156,35 @@ cliGetLine (IN HANDLE hDriver)
     CHAR c;
     BOOLEAN first = FALSE;
 
-    // Wait for a new character
+    // ждём новый символ
     while (TRUE)
     {
-        // get the character that was pressed
+        // получаем символ
         c = сliGetChar(hDriver);
 
-        // check if this was ENTER
-        if (c == '\r') // such Windows...
+        // проверка, не Enter ли это
+        if (c == '\r')
         {
-			line[currentPosition] = ANSI_NULL;
-            currentPosition = 0;
+			line[currentPosition] = ANSI_NULL; //нуль-терминатор
+            currentPosition = 0; //обнуляем позицию считывания
             
-			// return it
+			// возвращаем строку
             return line;
         }
-		// skip backspace
+		// на backspace внимания не обращаем
         else if (c == '\b')
         {
             continue;
         }
 
-        // c sure it's not NULL.
+        // убеждаемся, что символ не NULL.
         if (!c || c == -1) continue;
 
-        // add it to our line buffer
+        // добавляем его в строковый буфер
         line[currentPosition] = c;
         currentPosition++;
 
-        // echo here:
+        // вывод на экран
         cliPutChar(c);
     }
 }
@@ -195,7 +195,7 @@ void NtProcessStartup (void* StartupArgument)
 	NTSTATUS status;
 	PCHAR command;
 		
-    // setup keyboard input:
+    // устанавливаем ввод с клавиатуры
     status = cliOpenInputDevice (&hKeyboard, L"\\Device\\KeyboardClass0");
 	
 	cliPrintString ("Type 'quit' to exit\n");
@@ -203,24 +203,24 @@ void NtProcessStartup (void* StartupArgument)
 	
 	while (TRUE)
     {
-        // get the line that was entered and display a new line
+        // получаем строку, введённую в поле и выводим ее
         command = cliGetLine (hKeyboard);
         cliPrintString ("\n");
 
-        // make sure there's actually a command
+        // проверяем, не команда ли была введена
         if (*command)
         {
-            // process the command and do a new line again.
-            if (!_strnicmp(command, "quit", 4)) // exit if "quit"
+            // выполняем команду и переходим на новую строку
+            if (!_strnicmp(command, "quit", 4)) // выходим, если введено "quit"
 			{
-				NtTerminateProcess(NtCurrentProcess(), 0); // exit native application
+				NtTerminateProcess(NtCurrentProcess(), 0); // функция завершения процесса
 			}
 			cliPrintString ("\n");
 			cliPrintString (command);
 			cliPrintString ("\n");
         }
 
-        // display the prompt, and restart the loop
+        // показываем елку и ждём ввода информации
         cliPrintString (">>>");
     }
 }
