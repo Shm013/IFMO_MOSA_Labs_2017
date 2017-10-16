@@ -190,11 +190,167 @@ cliGetLine (IN HANDLE hDriver)
 }
 
 
+BOOLEAN closeFile (HANDLE hFile)
+{
+	NTSTATUS ntStatus = 0;
+
+	ntStatus = NtClose(hFile);
+
+	if (ntStatus == STATUS_SUCCESS)
+	{
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+BOOLEAN openFile(HANDLE* phRetFile, WCHAR* pwszFileName, BOOLEAN bWrite, BOOLEAN bOverwrite)
+{
+	HANDLE hFile;
+	UNICODE_STRING ustrFileName;
+	IO_STATUS_BLOCK IoStatusBlock;
+	ULONG CreateDisposition = 0;
+	WCHAR wszFileName[1024] = L"\\??\\";
+	OBJECT_ATTRIBUTES ObjectAttributes;
+	NTSTATUS ntStatus;
+
+	wcscat(wszFileName, pwszFileName);
+
+	RtlInitUnicodeString(&ustrFileName, wszFileName);
+
+	InitializeObjectAttributes(&ObjectAttributes,
+		&ustrFileName,
+		OBJ_CASE_INSENSITIVE,
+		NULL,
+		NULL);
+
+	if (bWrite) 
+	{
+		if (bOverwrite)
+		{
+			CreateDisposition = FILE_OVERWRITE_IF;
+		} else
+		{
+			CreateDisposition = FILE_OPEN_IF;
+		}
+	} else
+	{
+		CreateDisposition = FILE_OPEN;
+	}
+
+	ntStatus = NtCreateFile(&hFile, GENERIC_WRITE|SYNCHRONIZE|GENERIC_READ, 
+		&ObjectAttributes, &IoStatusBlock, 0, FILE_ATTRIBUTE_NORMAL, 0, 
+		CreateDisposition, FILE_SYNCHRONOUS_IO_NONALERT,  NULL, 0); 
+
+	if (!NT_SUCCESS(ntStatus))
+	{
+		//RtlCliDisplayString("NtCreateFile() failed 0x%.8X\n", ntStatus);
+		cliPrintString("CreateFile() failed");
+		return FALSE;
+	}
+
+	*phRetFile = hFile;
+
+	return TRUE;
+}
+
+
+BOOLEAN getFileSize(HANDLE hFile, LONGLONG* pRetFileSize)
+{
+	IO_STATUS_BLOCK sIoStatus;
+	FILE_STANDARD_INFORMATION sFileInfo;
+	NTSTATUS ntStatus = 0;
+
+	memset(&sIoStatus, 0, sizeof(IO_STATUS_BLOCK));
+	memset(&sFileInfo, 0, sizeof(FILE_STANDARD_INFORMATION));
+
+	ntStatus = NtQueryInformationFile(hFile, &sIoStatus, &sFileInfo,
+		sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation);
+	if (ntStatus == STATUS_SUCCESS)
+	{
+		if (pRetFileSize)
+		{
+			*pRetFileSize = (sFileInfo.EndOfFile.QuadPart);
+		}
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+
+BOOLEAN readFile(HANDLE hFile, LPVOID pOutBuffer, DWORD dwOutBufferSize, DWORD* pRetReadedSize)
+{
+	IO_STATUS_BLOCK sIoStatus;
+	NTSTATUS ntStatus = 0;
+
+	memset(&sIoStatus, 0, sizeof(IO_STATUS_BLOCK));
+
+	ntStatus = NtReadFile( hFile, NULL, NULL, NULL, &sIoStatus, pOutBuffer, dwOutBufferSize, NULL, NULL);
+	if (ntStatus == STATUS_SUCCESS) 
+	{
+		if (pRetReadedSize) 
+		{
+		*pRetReadedSize = sIoStatus.Information;
+		}
+
+		return TRUE;
+	}
+	return FALSE;
+}
+
+
+VOID typeFile(WCHAR *filename)
+{
+	HANDLE hFile = NULL;
+	BYTE Buf[8192];
+	LONGLONG fileSize = 0;
+	DWORD readedSize = 0;
+	DWORD readedSizeTotal = 0;
+	BOOLEAN bResult = 0;
+	
+	bResult = openFile(&hFile, filename, FALSE, FALSE);
+	if (bResult == FALSE) 
+	{
+		return;
+	}
+	
+	
+	if (getFileSize(hFile, &fileSize) == FALSE) 
+	{
+		closeFile(hFile);
+		return;
+	}
+	
+	
+	while (1) 
+	{
+		readedSize = 0;
+
+		if (readFile(hFile, Buf, 8192, &readedSize) == FALSE) 
+		{
+			closeFile(hFile);
+			return;
+		}
+		cliPrintString(Buf);
+		
+		readedSizeTotal += readedSize;
+		if (readedSizeTotal == fileSize)
+		{
+			// End of File...
+		break;
+		}
+	}
+}
+
+
 void NtProcessStartup (void* StartupArgument) 
 { 
 	NTSTATUS status;
 	PCHAR command;
-		
+	
+	typeFile(L"C:\\test.txt");
+	
     // устанавливаем ввод с клавиатуры
     status = cliOpenInputDevice (&hKeyboard, L"\\Device\\KeyboardClass0");
 	
