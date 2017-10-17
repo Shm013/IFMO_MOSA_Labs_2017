@@ -192,11 +192,11 @@ cliGetLine (IN HANDLE hDriver)
 
 BOOLEAN closeFile (HANDLE hFile)
 {
-	NTSTATUS ntStatus = 0;
+	NTSTATUS status = 0;
 
-	ntStatus = NtClose(hFile);
+	status = NtClose(hFile);
 
-	if (ntStatus == STATUS_SUCCESS)
+	if (status == STATUS_SUCCESS)
 	{
 		return TRUE;
 	}
@@ -204,73 +204,71 @@ BOOLEAN closeFile (HANDLE hFile)
 	return FALSE;
 }
 
-BOOLEAN openFile(HANDLE* phRetFile, WCHAR* pwszFileName, BOOLEAN bWrite, BOOLEAN bOverwrite)
+
+BOOLEAN openFile (HANDLE* phRetFile, // Сохронять хендлер сюда
+				  WCHAR* fileName)   // Название файла
 {
 	HANDLE hFile;
-	UNICODE_STRING ustrFileName;
-	IO_STATUS_BLOCK IoStatusBlock;
-	ULONG CreateDisposition = 0;
-	WCHAR wszFileName[1024] = L"\\??\\";
-	OBJECT_ATTRIBUTES ObjectAttributes;
-	NTSTATUS ntStatus;
+	UNICODE_STRING ustrFileName; 	 		// В ФС имена файлов сохраняются в UTF-16LE, 2 байта
+	IO_STATUS_BLOCK ioStatusBlock;			// Cтатус выполнения функции и информация о заданном праве доступа (FILE_CREATED, FILE_OPENED, etc
+	WCHAR wszFileName[1024] = L"\\??\\";    // An NT Object Path string MUST begin with \??\. UNC во все поля
+	OBJECT_ATTRIBUTES objectAttributes;     // Атрибуты файла
+	NTSTATUS status;
 
-	wcscat(wszFileName, pwszFileName);
+	wcscat (wszFileName, fileName);			// Дополняет строку
 
-	RtlInitUnicodeString(&ustrFileName, wszFileName);
+	RtlInitUnicodeString (&ustrFileName, wszFileName); // Initializes a counted Unicode string (Winternl.h)
 
-	InitializeObjectAttributes(&ObjectAttributes,
-		&ustrFileName,
-		OBJ_CASE_INSENSITIVE,
-		NULL,
-		NULL);
+	InitializeObjectAttributes (&objectAttributes, 		// сохраняет атрибуты в этой переменной
+								&ustrFileName,   	 	// имя файла
+								OBJ_CASE_INSENSITIVE,	// поле для атрибутов
+								NULL,					// корневая папка (нет необходимости)
+                                NULL); 					// дескриптор (необязательное поле)
 
-	if (bWrite) 
+	
+	status = NtCreateFile (&hFile, 									// хэндл сохраняется в эту переменную
+						   GENERIC_WRITE|SYNCHRONIZE|GENERIC_READ,  // Запрашиваемый доступ
+						   &objectAttributes, 						// инициализированные атрибуты
+						   &ioStatusBlock, 							// статус-блок
+						   0, 										// размер файла после создания
+						   FILE_ATTRIBUTE_NORMAL, 					// атрибуты файла, по умолчанию
+						   0, 										// совместное использование файла
+						   FILE_OPEN, 								// указывает, как создать файл (файл уже должен существовать)
+						   FILE_SYNCHRONOUS_IO_NONALERT,  			// опции создания
+						   NULL, 									// буфер расширенных атрибутов
+						   0); 										// длина предыдущего параметра
+
+	if (!NT_SUCCESS(status)) // Если что-то пошло не так
 	{
-		if (bOverwrite)
-		{
-			CreateDisposition = FILE_OVERWRITE_IF;
-		} else
-		{
-			CreateDisposition = FILE_OPEN_IF;
-		}
-	} else
-	{
-		CreateDisposition = FILE_OPEN;
-	}
-
-	ntStatus = NtCreateFile(&hFile, GENERIC_WRITE|SYNCHRONIZE|GENERIC_READ, 
-		&ObjectAttributes, &IoStatusBlock, 0, FILE_ATTRIBUTE_NORMAL, 0, 
-		CreateDisposition, FILE_SYNCHRONOUS_IO_NONALERT,  NULL, 0); 
-
-	if (!NT_SUCCESS(ntStatus))
-	{
-		//RtlCliDisplayString("NtCreateFile() failed 0x%.8X\n", ntStatus);
-		cliPrintString("CreateFile() failed");
+		cliPrintString ("CreateFile() failed");
 		return FALSE;
 	}
 
-	*phRetFile = hFile;
+	*phRetFile = hFile; // Записывает хендлер
 
 	return TRUE;
 }
 
 
-BOOLEAN getFileSize(HANDLE hFile, LONGLONG* pRetFileSize)
+BOOLEAN getFileSize (HANDLE hFile, 				// Хэндлер файла
+					 LONGLONG* pRetFileSize) 	// размер файла запишется сюда
 {
-	IO_STATUS_BLOCK sIoStatus;
-	FILE_STANDARD_INFORMATION sFileInfo;
-	NTSTATUS ntStatus = 0;
+	IO_STATUS_BLOCK sIoStatus;				// Cтатус выполнения функции
+	FILE_STANDARD_INFORMATION sFileInfo;	// Информация о файле
+	NTSTATUS status = 0;
 
-	memset(&sIoStatus, 0, sizeof(IO_STATUS_BLOCK));
-	memset(&sFileInfo, 0, sizeof(FILE_STANDARD_INFORMATION));
-
-	ntStatus = NtQueryInformationFile(hFile, &sIoStatus, &sFileInfo,
-		sizeof(FILE_STANDARD_INFORMATION), FileStandardInformation);
-	if (ntStatus == STATUS_SUCCESS)
+	// NtQueryInformationFile - routine returns various kinds of information about a file object.
+	status = NtQueryInformationFile (hFile, // хэндлер
+									 &sIoStatus, // 
+									 &sFileInfo, 						// структура с информацией о файле
+									 sizeof(FILE_STANDARD_INFORMATION), // размер этой стркутуры
+									 FileStandardInformation);		    // тип запрашиваемой информации
+									 
+	if (status == STATUS_SUCCESS)
 	{
 		if (pRetFileSize)
 		{
-			*pRetFileSize = (sFileInfo.EndOfFile.QuadPart);
+			*pRetFileSize = sFileInfo.EndOfFile.QuadPart;
 		}
 		return TRUE;
 	}
@@ -279,19 +277,29 @@ BOOLEAN getFileSize(HANDLE hFile, LONGLONG* pRetFileSize)
 }
 
 
-BOOLEAN readFile(HANDLE hFile, LPVOID pOutBuffer, DWORD dwOutBufferSize, DWORD* pRetReadedSize)
+BOOLEAN readFile (HANDLE hFile, 
+				  LPVOID pOutBuffer, 
+				  DWORD dwOutBufferSize, 
+				  DWORD* pRetReadedSize)
 {
 	IO_STATUS_BLOCK sIoStatus;
-	NTSTATUS ntStatus = 0;
+	NTSTATUS status = 0;
 
-	memset(&sIoStatus, 0, sizeof(IO_STATUS_BLOCK));
-
-	ntStatus = NtReadFile( hFile, NULL, NULL, NULL, &sIoStatus, pOutBuffer, dwOutBufferSize, NULL, NULL);
-	if (ntStatus == STATUS_SUCCESS) 
+	status = NtReadFile (hFile, // хэндл
+						 NULL,  // эвент, тут он не нужен
+						 NULL,  // зарезервированно
+						 NULL,  // зарезервированно
+						 &sIoStatus, 
+						 pOutBuffer, 	   	// буфер с данными
+						 dwOutBufferSize,  	// размер буфера
+						 NULL, 				// offset, для чтения "за" файлом. Тут не нужно
+						 NULL); 			// должен быть NULL
+						 
+	if (status == STATUS_SUCCESS) 
 	{
 		if (pRetReadedSize) 
 		{
-		*pRetReadedSize = sIoStatus.Information;
+			*pRetReadedSize = sIoStatus.Information; // Сколько байтов прочитано
 		}
 
 		return TRUE;
@@ -309,21 +317,21 @@ VOID typeFile(WCHAR *filename)
 	DWORD readedSizeTotal = 0;
 	BOOLEAN bResult = 0;
 	
-	bResult = openFile(&hFile, filename, FALSE, FALSE);
+	bResult = openFile(&hFile, filename); // открыть файл
 	if (bResult == FALSE) 
 	{
 		return;
 	}
 	
 	
-	if (getFileSize(hFile, &fileSize) == FALSE) 
+	if (getFileSize(hFile, &fileSize) == FALSE) // получить размер файла
 	{
 		closeFile(hFile);
 		return;
 	}
 	
 	
-	while (1) 
+	while (1) // Чтение в цикле по 8 Кб - по 2 страници PAE
 	{
 		readedSize = 0;
 
@@ -332,13 +340,13 @@ VOID typeFile(WCHAR *filename)
 			closeFile(hFile);
 			return;
 		}
-		cliPrintString(Buf);
+		cliPrintString(Buf); // Печать тут
 		
 		readedSizeTotal += readedSize;
 		if (readedSizeTotal == fileSize)
 		{
-			// End of File...
-		break;
+			// Конец файла...
+			break;
 		}
 	}
 }
