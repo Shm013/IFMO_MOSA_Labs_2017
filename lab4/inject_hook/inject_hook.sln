@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual C++ Express 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "target", "target\target.vcxproj", "{3F7EEAD9-AD8B-4F9D-858E-CD1946CDCB39}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "injector", "injector\injector.vcxproj", "{8A47DEF8-BB24-4A66-B6A2-2A27E67235F8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "inj_dll", "inj_dll\inj_dll.vcxproj", "{F6C4B1F6-70FC-4C88-A088-AED6E9789A8A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3F7EEAD9-AD8B-4F9D-858E-CD1946CDCB39}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3F7EEAD9-AD8B-4F9D-858E-CD1946CDCB39}.Debug|Win32.Build.0 = Debug|Win32
+		{3F7EEAD9-AD8B-4F9D-858E-CD1946CDCB39}.Release|Win32.ActiveCfg = Release|Win32
+		{3F7EEAD9-AD8B-4F9D-858E-CD1946CDCB39}.Release|Win32.Build.0 = Release|Win32
+		{8A47DEF8-BB24-4A66-B6A2-2A27E67235F8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8A47DEF8-BB24-4A66-B6A2-2A27E67235F8}.Debug|Win32.Build.0 = Debug|Win32
+		{8A47DEF8-BB24-4A66-B6A2-2A27E67235F8}.Release|Win32.ActiveCfg = Release|Win32
+		{8A47DEF8-BB24-4A66-B6A2-2A27E67235F8}.Release|Win32.Build.0 = Release|Win32
+		{F6C4B1F6-70FC-4C88-A088-AED6E9789A8A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F6C4B1F6-70FC-4C88-A088-AED6E9789A8A}.Debug|Win32.Build.0 = Debug|Win32
+		{F6C4B1F6-70FC-4C88-A088-AED6E9789A8A}.Release|Win32.ActiveCfg = Release|Win32
+		{F6C4B1F6-70FC-4C88-A088-AED6E9789A8A}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
